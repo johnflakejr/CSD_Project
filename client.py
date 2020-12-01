@@ -1,3 +1,9 @@
+'''
+CPT John Lake
+CSD Board Project - Client
+Last updated 30NOV2020
+'''
+
 import argparse;
 import ipaddress;
 import socket;
@@ -25,11 +31,6 @@ def upload(sock,filename):
         sock.send(read_bytes); 
         read_bytes = f.read(4096); 
     f.close(); 
-    
-    
-
-    
-    
 
 def download(sock,filename): 
 
@@ -107,6 +108,5 @@ def main():
         download(sock,filename); 
 
     sock.close();    
-    
 
 main(); 

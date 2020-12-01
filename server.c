@@ -4,6 +4,7 @@
  * Last Updated: 30NOV2020
  */
 
+//TODO: add more robust error messages. 
 
 #include "util.h"
 #include <stdio.h>
@@ -140,13 +141,11 @@ int main(int argc, char ** args){
 		memset(command_buffer,0,4096); 
 
 		if(client_socket < 0){
-			printf("Accept socket error:%d\n",errno);
+			printf("Error accepting socket:%d\n",errno);
 			exit(1); 
 		}
 
 		if(DEBUG){
-			printf("Socket number: %d\n",client_socket);
-			printf("Received connection.\n");
 			printf("Client IP/Port:  %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
 		}
 
@@ -156,31 +155,32 @@ int main(int argc, char ** args){
 		command_buffer[4095] = '\0'; 
 
 		if(bytes_received < 0){
-			printf("Recv error: %d\n",errno); 
+			printf("Error receiving data:%d\n",errno); 
 			exit(1); 
 		}
 
 		//tokenize the message: 
 		parsed_command = parse_command(command_buffer,bytes_received); 
+	
+		//Command message error: 
 		if(parsed_command == NULL){
+			if(DEBUG)
+				printf("Command error from client.  Terminating connection.\n"); 
 			send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
-			free(full_file_path); 
-			free(parsed_command); 
-			continue; 
+		}else{
+			//Add working directory to the filepath 
+			full_file_path = obtain_full_file_path(parsed_command[1],working_dir); 
+
+			//Upload file: 
+			if(strcmp(parsed_command[0],"UPLOAD") == 0)
+				upload(client_socket,full_file_path,parsed_command[1]); 
+			//Download file: 
+			else if (strcmp(parsed_command[0],"DOWNLOAD") == 0)
+				download(client_socket,full_file_path,parsed_command[1]);
+			//Neither UPLOAD nor DOWNLOAD:
+			else
+				send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 		}
-
-		//Add working directory to the filepath 
-		full_file_path = obtain_full_file_path(parsed_command[1],working_dir); 
-
-		//Upload file: 
-		if(strcmp(parsed_command[0],"UPLOAD") == 0)
-			upload(client_socket,full_file_path,parsed_command[1]); 
-		//Download file: 
-		else if (strcmp(parsed_command[0],"DOWNLOAD") == 0)
-			download(client_socket,full_file_path,parsed_command[1]);
-		//Neither UPLOAD nor DOWNLOAD:
-		else
-			send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 
 		free(full_file_path); 
 		free(parsed_command); 

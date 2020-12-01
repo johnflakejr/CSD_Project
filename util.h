@@ -8,8 +8,8 @@
 #include <unistd.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #define DEBUG 1
+
 /*
  * Usage message when command line arguments or commands are improperly used: 
  */
@@ -20,8 +20,8 @@ void usage(void){
 
 
 /*
- * Helper function to send a custom error message to the client and close the connection. 
- *
+ * Microscopic helper function to send a custom error message to the client because I don't feel like 
+ * TODO: get rid of this. 
  */
 void send_error(int socket, char* message){ 
 	send(socket,message,strlen(message),0); 
@@ -31,7 +31,15 @@ void send_error(int socket, char* message){
  * Combine working dir and filename to obtain full file path (absolute or relative): 
  */
 char * obtain_full_file_path(char * filename,char * working_dir){
+
+	if(DEBUG){
+		printf("Combining working directory: %s with filename %s\n",working_dir,filename); 
+	}
+
+	//Allocate enough memory for the filename plus the working directory
 	char * ffp = malloc(strlen(filename) + strlen(working_dir));  
+
+	//Add "/" to the end of the directory if it isn't there. 
 	int dir_len = strlen(working_dir); 
 	if(working_dir[dir_len-1] != '/'){
 		sprintf(ffp,"%s/%s",working_dir,filename); 
@@ -39,20 +47,28 @@ char * obtain_full_file_path(char * filename,char * working_dir){
 		sprintf(ffp,"%s%s",working_dir,filename); 
 	}
 
-	printf("Full filepath: %s\n",ffp); 
+	if(DEBUG)
+		printf("Full filepath: %s\n",ffp); 
+
 	return ffp; 
 }	
 
-char * trim_whitespace(char * input){
-	int offset=0, i = 0; 
 
+/*
+ * Get rid of trailing and leading whitespace: 
+ */
+char * trim_whitespace(char * input){
+
+	
 	//Trim leading whitespace and forward slashes (paths): 
+	int offset=0, i = 0; 
 	while(input[offset] == ' ' || input[offset] == '\t' || input[offset] == '\n'){
 		offset++; 
 	}
-	i = 0; 
 
-	//Start at the offset found above, and move the characters over (incl trailing whitespace):  
+
+	//Start at the offset found above (first spot with no whitespace), and move the characters over (incl trailing whitespace):  
+	i = 0; 
 	while(input[offset+i] != '\0'){
 		input[i] = input[offset + i]; 	
 		i++; 
@@ -67,6 +83,7 @@ char * trim_whitespace(char * input){
 			index = i; 
 		i++; 
 	}
+	//Null terminate right after the last non-whitespace character, effectively removing trailing whitespace: 
 	input[index+1] = '\0';  
 	return input; 
 }
@@ -85,14 +102,13 @@ char ** parse_command(char * buffer, ssize_t message_length){
 	if(request_type == NULL || filename == NULL)
 		return NULL; 
 
-
 	if(DEBUG){
 		printf("Command used: %s, %d bytes\n",request_type,(int) strlen(request_type)); 
 		printf("Filename used: %s, %d bytes\n",filename,(int) strlen(filename)); 
 	}
 	
 
-	//Return string array with two strings: the command and filename.  **Free this later**
+	//Return string array with two strings: the command and filename.  Dynamically allocate with size of two char arrays.  
 	char ** parsed_command = (char**) malloc(2 * sizeof(char*)); 
 	parsed_command[0] = request_type; 
 	parsed_command[1] = trim_whitespace(filename);
