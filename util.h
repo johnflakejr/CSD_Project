@@ -18,10 +18,8 @@ void usage(void){
 	exit(1);
 }
 
-
 /*
- * Microscopic helper function to send a custom error message to the client because I don't feel like 
- * TODO: get rid of this. 
+ * Microscopic helper function to send a custom error message to the client
  */
 void send_error(int socket, char* message){ 
 	send(socket,message,strlen(message),0); 
@@ -37,7 +35,7 @@ char * obtain_full_file_path(char * filename,char * working_dir){
 	}
 
 	//Allocate enough memory for the filename plus the working directory
-	char * ffp = malloc(strlen(filename) + strlen(working_dir));  
+	char * ffp = malloc(strlen(filename) + strlen(working_dir) + 2);  
 
 	//Add "/" to the end of the directory if it isn't there. 
 	int dir_len = strlen(working_dir); 

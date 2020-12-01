@@ -8,7 +8,8 @@ import argparse;
 import ipaddress;
 import socket;
 import os; 
-
+import sys;
+import time; 
 
 def upload(sock,filename):
     #Server doesn't care about the directory we get the file from on the client. 
@@ -21,9 +22,10 @@ def upload(sock,filename):
 
     #If the server doesn't reply with READY, then abort. 
     if("READY" not in data): 
-        print("Error uploading.\n"); 
+        print("Error uploading.\n",file=sys.stderr); 
         return; 
 
+    print("Uploading \"" + filename + "\" to the server.\n");
     #Open file, read bytes, and send them. 
     f = open(filename,"rb"); 
     read_bytes = f.read(4096); 
@@ -41,17 +43,22 @@ def download(sock,filename):
 
     #If the server doesn't reply with READY, then abort. 
     if("FILE_NOT_FOUND" in data): 
-        print("Error downloading - File not found.\n"); 
+        print("Error: File not found on server.\n",file=sys.stderr); 
         return; 
     if("SENDING" not in data):  
-        print("Error downloading - Unspecified error.\n"); 
+        print("Error: could not download - Unspecified error.\n",file=sys.stderr); 
         return; 
+
+    size = data.split(" ")[1]; 
+    print("Downloading \"" + filename + "\" with size " + str(size)); 
 
 
     #Open file, read bytes from server,and save them
     f = open(filename,"wb"); 
     data = sock.recv(4096); 
     while(data): 
+        print("#",end=''); 
+        sys.stdout.flush(); 
         f.write(data); 
         data = sock.recv(4096); 
     f.close(); 
@@ -61,25 +68,25 @@ def download(sock,filename):
 def validate_input(ip,port,command,filename): 
     #valid port? 
     if(port <0 or port > 65535):
-        print("Invalid port.\n");
+        print("Error: Invalid port.\n",file=sys.stderr);
         quit();
 
     #valid IP?
     try: 
         ipaddress.ip_address(ip);
     except:  
-        print("Invalid IP.\n");
+        print("Error: Invalid IP.\n",file=sys.stderr);
         quit(); 
 
     #valid command?
     if(command != "U" and command != "D"):
-        print("Invalid command.  U/D are the only valid commands."); 
+        print("Error: Invalid command.  U/D are the only valid commands.",file=sys.stderr); 
         quit(); 
 
     #if uploading, check if file exists. 
     if(command == "U"): 
         if(not os.path.isfile(filename)):
-            print("File doesn't exist."); 
+            print("Error: File doesn't exist.",file=sys.stderr); 
             quit(); 
 
 def main():
@@ -101,11 +108,14 @@ def main():
 
     #Connect to server: 
     sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM); 
-    sock.connect((ip,port));
-    if(command == "U"):
-        upload(sock,filename); 
-    elif(command == "D"): 
-        download(sock,filename); 
+    try:
+        sock.connect((ip,port));
+        if(command == "U"):
+            upload(sock,filename); 
+        elif(command == "D"): 
+            download(sock,filename); 
+    except: 
+        print("Error: could not connect to the server.\n",file=sys.stderr); 
 
     sock.close();    
 
