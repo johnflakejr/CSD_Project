@@ -14,7 +14,7 @@
  * Usage message when command line arguments or commands are improperly used: 
  */
 void usage(void){
-	printf("Usage: ./NAME PORT DIRECTORY\n");
+	printf("Usage: ./server PORT DIRECTORY\n");
 	exit(1);
 }
 
@@ -25,8 +25,6 @@ void usage(void){
  */
 void send_error(int socket, char* message){ 
 	send(socket,message,strlen(message),0); 
-	close(socket); 
-	printf("Sent error message.\n"); 
 }
 
 /*
@@ -73,23 +71,28 @@ char * trim_whitespace(char * input){
 	return input; 
 }
 
-
-
-/**
+/*
  * Given a buffer, extract the command and filename and return them as an array of two strings. 
  */
 char ** parse_command(char * buffer, ssize_t message_length){
+	//Request type = Upload or Download.
 	char *request_type = strtok(buffer," "); 
+
+	//Filename is what's left in the buffer. 
 	char *filename = strtok(NULL,"\n"); 
 
+	//If either call to strtok returns a null value, return NULL. 
 	if(request_type == NULL || filename == NULL)
 		return NULL; 
+
+
 	if(DEBUG){
 		printf("Command used: %s, %d bytes\n",request_type,(int) strlen(request_type)); 
 		printf("Filename used: %s, %d bytes\n",filename,(int) strlen(filename)); 
-
 	}
 	
+
+	//Return string array with two strings: the command and filename.  **Free this later**
 	char ** parsed_command = (char**) malloc(2 * sizeof(char*)); 
 	parsed_command[0] = request_type; 
 	parsed_command[1] = trim_whitespace(filename);

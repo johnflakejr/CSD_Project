@@ -13,7 +13,7 @@ run:
 	./a.out 5000 .
 
 memcheck: all
-	valgrind --leak-check=full --show-leak-kinds=all ./$(EXEC) 5555 serverdir
+	valgrind --leak-check=full --show-leak-kinds=all ./$(EXEC) 5554 serverdir
 
 clean: 
 	rm server.o server
