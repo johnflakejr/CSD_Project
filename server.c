@@ -2,7 +2,9 @@
  * CPT John Lake
  * CSD Board Project
  */
+#include "util.h"
 #include <stdio.h>
+#include <time.h> 
 #include <errno.h>
 #include <stdlib.h>
 #include <dirent.h> 
@@ -18,90 +20,6 @@
 #define ERROR 3
 
 
-/*
- * Usage message when command line arguments or commands are improperly used: 
- */
-void usage(void){
-	printf("Usage: ./NAME PORT DIRECTORY\n");
-	exit(1);
-}
-
-
-/*
- * Helper function to send a custom error message to the client and close the connection. 
- *
- */
-void send_error(int socket, char* message){ 
-	send(socket,message,strlen(message),0); 
-	close(socket); 
-}
-
-/*
- * Combine working dir and filename to obtain full file path (absolute or relative): 
- */
-char * obtain_full_file_path(char * filename,char * working_dir){
-	char * ffp = malloc(strlen(filename) + strlen(working_dir));  
-	int dir_len = strlen(working_dir); 
-	if(working_dir[dir_len-1] != '/'){
-		sprintf(ffp,"%s/%s",working_dir,filename); 
-	}else{
-		sprintf(ffp,"%s%s",working_dir,filename); 
-	}
-
-	printf("Full filepath: %s\n",ffp); 
-	return ffp; 
-}	
-
-char * trim_whitespace(char * input){
-	int offset=0, i = 0; 
-
-	//Trim leading whitespace and forward slashes (paths): 
-	while(input[offset] == ' ' || input[offset] == '\t' || input[offset] == '\n'){
-		offset++; 
-	}
-	i = 0; 
-
-	//Start at the offset found above, and move the characters over (incl trailing whitespace):  
-	while(input[offset+i] != '\0'){
-		input[i] = input[offset + i]; 	
-		i++; 
-	}
-	input[i] = '\0'; 
-
-	//Determine last non-whitespace character: 
-	int index = -1; 
-	i = 0; 
-	while(input[i] != '\0'){
-		if(input[i] != ' ' && input[i] != '\t' && input[i] != '\n')
-			index = i; 
-		i++; 
-	}
-	input[index+1] = '\0';  
-	return input; 
-}
-
-
-
-/**
- * Given a buffer, extract the command and filename and return them as an array of two strings. 
- */
-char ** parse_command(char * buffer, ssize_t message_length){
-	char *request_type = strtok(buffer," "); 
-	char *filename = strtok(NULL,"\n"); 
-
-	if(request_type == NULL || filename == NULL)
-		return NULL; 
-	if(DEBUG){
-		printf("Command used: %s, %d bytes\n",request_type,(int) strlen(request_type)); 
-		printf("Filename used: %s, %d bytes\n",filename,(int) strlen(filename)); 
-
-	}
-	
-	char ** parsed_command = (char**) malloc(2 * sizeof(char*)); 
-	parsed_command[0] = request_type; 
-	parsed_command[1] = trim_whitespace(filename);
-	return parsed_command; 
-}
 
 /*
 	Command line arguments to be used IAW proj doc. 
@@ -220,15 +138,16 @@ int main(int argc, char ** args){
 
 		//Upload file: 
 		if(command == UPLOAD){
-			sprintf(response_buffer,"READY %s\n",parsed_command[1]); 
-			send(client_socket,response_buffer,strlen(response_buffer),0); 
-					
+				
 			//Write to file: 
 			FILE * file_pointer = fopen(full_file_path,"wb"); 
 			if(!file_pointer){
 				send_error(client_socket,"Error writing file. Closing.\n\n"); 	
+				continue; 
 			}
-
+			sprintf(response_buffer,"READY %s\n",parsed_command[1]); 
+			send(client_socket,response_buffer,strlen(response_buffer),0); 
+				
 			ssize_t total_b; 
 			bytes_received = recv(client_socket,file_buffer,sizeof(file_buffer),0); 
 			while(bytes_received){
@@ -242,7 +161,7 @@ int main(int argc, char ** args){
 		} else if (command == DOWNLOAD){
 
 			//Check if file exists: 
-			if(access(parsed_command[1],F_OK) == -1){
+			if(access(full_file_path,F_OK) == -1){
 				send_error(client_socket,"FILE_NOT_FOUND\n"); 
 				continue; 
 			}
@@ -251,6 +170,7 @@ int main(int argc, char ** args){
 			FILE * file_pointer = fopen(full_file_path,"rb"); 
 			if(!file_pointer){
 				send_error(client_socket,"Error reading file. Closing.\n\n"); 	
+				continue; 
 			}
 
 			//Determine file size: 
@@ -259,6 +179,7 @@ int main(int argc, char ** args){
 			sprintf(response_buffer,"SENDING %d\n",size); 
 			send(client_socket,response_buffer,strlen(response_buffer),0); 
 			fseek(file_pointer,0,SEEK_SET); 
+			sleep(1); 
 			ssize_t total_b;
 			ssize_t bytes_read = fread(file_buffer,1,4096,file_pointer); 
 			while(bytes_read > 0){
