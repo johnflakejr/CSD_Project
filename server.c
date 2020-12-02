@@ -32,6 +32,11 @@ void broken_pipe_handler(){
  */
 void download(int client_socket, char *full_file_path, char* filename){
 
+	if(DEBUG){
+		printf("Full filepath for download: %s\n",full_file_path); 
+		printf("File name for download:%s\n",filename); 
+	}
+
 	//Setup buffers
 	char file_buffer[4096];
 	char response_buffer[4096];
@@ -93,7 +98,14 @@ void download(int client_socket, char *full_file_path, char* filename){
  * Upload files from the client to this server.
  */
 void upload(int client_socket,char * full_file_path, char* filename){
+
 	
+	if(DEBUG){
+		printf("Full filepath for upload (server path): %s\n",full_file_path); 
+		printf("File name for upload, without path %s\n",filename); 
+	}
+
+
 	//Setup buffers
 	char file_buffer[4096];
 	char response_buffer[4096];
@@ -227,23 +239,30 @@ int main(int argc, char ** args){
 			fprintf(stderr,"Error: There was an issue with the command sent by the client.  Terminating connection.\n"); 
 			send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 		}else{
-			//Add working directory to the filepath 
-			full_file_path = obtain_full_file_path(parsed_command[1],working_dir); 
 
 			//Upload file: 
 			if(strcmp(parsed_command[0],"UPLOAD") == 0){
+
+				char* server_filename = get_raw_filename(parsed_command[1]);  
+				full_file_path = obtain_full_file_path(server_filename,working_dir); 
 				printf("Upload request from %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
 				upload(client_socket,full_file_path,parsed_command[1]); 
+				free(server_filename); 
+				free(full_file_path); 
+
 			//Download file: 
 			}else if (strcmp(parsed_command[0],"DOWNLOAD") == 0){
+				//Add working directory to the filepath 
+				full_file_path = obtain_full_file_path(parsed_command[1],working_dir); 
 				printf("Download request from %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
 				download(client_socket,full_file_path,parsed_command[1]);
+				free(full_file_path); 
+
 			//Neither UPLOAD nor DOWNLOAD:
 			}else { 
 				fprintf(stderr,"Error: Unrecognized command from the client.\n"); 
 				send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 			}
-			free(full_file_path); 
 		}
 
 		free(parsed_command); 

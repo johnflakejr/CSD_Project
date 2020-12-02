@@ -8,7 +8,36 @@
 #include <unistd.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
-#define DEBUG 0
+#define DEBUG 1
+
+
+/*
+ *	Given a path and filename, return just the filename: 
+ */
+char* get_raw_filename(char * ffp){
+	char * raw_filename = malloc(strlen(ffp) + 1); 
+	strncpy(raw_filename,ffp,strlen(ffp)); 
+	raw_filename[strlen(ffp)] = '\0'; 
+	if(DEBUG){
+		printf("Full filepath: %s\n",ffp); 
+		printf("String length of filepath: %d\n",(int)strlen(ffp)); 
+	}
+
+	//Find out what the last "/" character's location is: 
+	int last_position = -1; 
+	int i; 
+	for(i = 0; i < strlen(raw_filename); i++){
+		if(raw_filename[i] == '/')
+			last_position = i; 
+	}
+
+	//Next, shift bytes over:
+	for(i = 0; i < strlen(raw_filename) - last_position; i++)
+		raw_filename[i] = raw_filename[i+last_position+1]; 
+	if(DEBUG)
+		printf("Returned filepath: %s\n",raw_filename); 
+	return raw_filename; 
+}
 
 /*
  * Usage message when command line arguments or commands are improperly used: 

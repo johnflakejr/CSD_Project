@@ -19,19 +19,23 @@ def upload(sock,filename):
     #Send the UPLOAD message: 
     sock.send(msg.encode())
     data = sock.recv(1024).decode();
+    expected = "READY " + net_filename; 
 
     #If the server doesn't reply with READY, then abort. 
-    if("READY" not in data): 
-        print("Error uploading.\n",file=sys.stderr); 
+    if(expected not in data): 
+        print("Error uploading.  The server did not reply with the expected message or filename.\n",file=sys.stderr); 
         return; 
 
     print("Uploading \"" + filename + "\" to the server.\n");
     #Open file, read bytes, and send them. 
     f = open(filename,"rb"); 
     read_bytes = f.read(4096); 
+    total_b = 0; 
     while(read_bytes):
+        total_b = total_b + len(list(read_bytes)); 
         sock.send(read_bytes); 
         read_bytes = f.read(4096); 
+    print("Uploaded " + str(total_b) + " bytes to the server.\n"); 
     f.close(); 
 
 def download(sock,filename): 
@@ -45,21 +49,37 @@ def download(sock,filename):
     if("FILE_NOT_FOUND" in data): 
         print("Error: File not found on server.\n",file=sys.stderr); 
         return; 
-    if("SENDING" not in data):  
-        print("Error: could not download - Unspecified error.\n",file=sys.stderr); 
+    if("SENDING " not in data):  
+        print("Error: could not download - the server sent a message that was not understood.\n",file=sys.stderr); 
         return; 
 
     size = data.split(" ")[1]; 
+    if(size == "" or size == '\n'):
+        print("Error: size not received.\n",file=sys.stderr); 
+        return; 
     print("Downloading \"" + filename + "\" with size " + str(size));
 
 
     #Open file, read bytes from server,and save them
     f = open(filename,"wb"); 
     data = sock.recv(4096); 
+    total_b = 0
     while(data): 
-        sys.stdout.flush(); 
+        total_b = total_b + len(list(data))
+        if(total_b > int(size)):
+            f.close(); 
+            os.remove(filename); 
+            print("Error: server sent more data than expected.  Cancelling. \n"); 
+            return; 
         f.write(data); 
         data = sock.recv(4096); 
+
+    if(total_b < int(size)): 
+        f.close(); 
+        print("Error: server sent less data than expected.  Cancelling. \n"); 
+        return; 
+
+    print("Wrote " + str(total_b) + " bytes to file.\n"); 
     f.close(); 
 
 
