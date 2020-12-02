@@ -125,33 +125,3 @@ void trim_whitespace(char * response,char * input){
 	response[index+1] = '\0';  
 }
 
-/*
- * Given a buffer, extract the command and filename and return them as an array of two strings. 
- */
-char ** parse_command(char * buffer){
-	//Request type = Upload or Download.
-	char *request_type = strtok(buffer," "); 
-
-	//Filename is what's left in the buffer. 
-	char *filename = strtok(NULL,"\n"); 
-
-	//If either call to strtok returns a null value, return NULL. 
-	if(request_type == NULL || filename == NULL)
-		return NULL; 
-
-	if(DEBUG){
-		printf("Command used: %s, %d bytes\n",request_type,(int) strlen(request_type)); 
-		printf("Filename used: %s, %d bytes\n",filename,(int) strlen(filename)); 
-	}
-	
-
-	//Return string array with two strings: the command and filename.  Dynamically allocate with size of two char arrays.  
-	char ** parsed_command = (char**) malloc(2 * sizeof(char*)); 
-	parsed_command[0] = request_type; 
-
-	char *trimmed_filename = (char*) malloc(strlen(filename) + 1); 
-	memset(trimmed_filename,0,strlen(filename)+1); 
-	trim_whitespace(trimmed_filename,filename);
-	parsed_command[1] = trimmed_filename;
-	return parsed_command; 
-}

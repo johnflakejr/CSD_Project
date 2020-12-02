@@ -32,7 +32,4 @@ char* obtain_full_file_path(char* filename, char* working_dir);
 //Get rid of leading and trailing whitespace: 
 void trim_whitespace(char*response, char*input); 
 
-//Given a buffer with a client's command (like "UPLOAD file"), parse it into two strinsg
-char** parse_command(char* buffer); 
-
 #endif
