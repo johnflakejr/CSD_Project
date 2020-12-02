@@ -1,0 +1,22 @@
+John F. Lake, Jr. 
+CSD Board Project - Client/Server
+#################################
+
+Compiling: 
+##########
+Use "make" to compile the server. 
+Use "make memcheck" to compile the server and run it with valgrind. 
+
+Running the Server: 
+###################
+Run the server with "./server PORT DIR"
+
+Connecting to the Server: 
+#########################
+Use "python3 client.py IP PORT COMMAND FILENAME", where COMMAND can by "U" or "D". 
+
+Some Design Notes: 
+##################
+- The server will strip path information from the client - "/etc/passwd" will be uploaded as "passwd" on the server.
+
+- The server will pause for a moment to allow the client to parse the filesize before sending the information. 
