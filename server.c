@@ -4,19 +4,19 @@
  * Last Updated: 2DEC2020
  */
 
-
 #include "util.h"
 #include <stdio.h>
 #include <time.h> 
 #include <errno.h>
+#include <signal.h> 
 #include <stdlib.h>
 #include <dirent.h> 
 #include <arpa/inet.h>
 #include <string.h> 
 #include <unistd.h> 
-#include <signal.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
+
 
 /*
  * Download files from this server to the client.
@@ -229,7 +229,7 @@ int main(int argc, char ** args){
 		//Command message error: 
 		if(parsed_command == NULL){
 			fprintf(stderr,"Error: There was an issue with the command sent by the client.  Terminating connection.\n"); 
-			send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
+			send_error(client_socket,"There was an issue with the command sent.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 			close(client_socket); 
 			continue; 
 		}else{
