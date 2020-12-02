@@ -194,7 +194,6 @@ int main(int argc, char ** args){
 	//Declare buffers / pointers for dynamically allocated memory
 	char command_buffer[4096];
 	char * full_file_path; 
-	char ** parsed_command;
 
 	while(1){
 
@@ -224,33 +223,44 @@ int main(int argc, char ** args){
 
 		//tokenize the message: 
 		//Here, we obtain the command and filename
-		parsed_command = parse_command(command_buffer); 
+		char *request_type = strtok(command_buffer," "); 
+		//Filename is what's left in the buffer. 
+		char *raw_filename = strtok(NULL,"\n"); 
 	
-		//Command message error: 
-		if(parsed_command == NULL){
-			fprintf(stderr,"Error: There was an issue with the command sent by the client.  Terminating connection.\n"); 
+
+		//If either call to strtok returns a null value, return NULL. 
+		if(request_type == NULL){
+		       	fprintf(stderr,"Error: There was an issue with the command sent by the client.  Terminating connection.\n"); 
 			send_error(client_socket,"There was an issue with the command sent.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 			close(client_socket); 
 			continue; 
+
+		}else if(raw_filename == NULL){
+			fprintf(stderr,"Error: There was no filename sent.  Terminating connection.\n"); 
+			send_error(client_socket,"The server did not detect a filename in the command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
+			close(client_socket); 
+			continue; 
 		}else{
+			char *client_filename = malloc(strlen(raw_filename)+1); 
+			trim_whitespace(client_filename,raw_filename); 
 
 			//Upload file: 
-			if(strcmp(parsed_command[0],"UPLOAD") == 0){
+			if(strcmp(request_type,"UPLOAD") == 0){
 
-				char* server_filename = malloc(strlen(parsed_command[1])+1);
-				get_raw_filename(server_filename,parsed_command[1]);  
+				char* server_filename = malloc(strlen(client_filename)+1);
+				get_raw_filename(server_filename,client_filename);  
 				full_file_path = obtain_full_file_path(server_filename,working_dir); 
 				printf("Upload request from %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
-				upload(client_socket,full_file_path,parsed_command[1]); 
+				upload(client_socket,full_file_path,client_filename); 
 				free(server_filename); 
 				free(full_file_path); 
 
 			//Download file: 
-			}else if (strcmp(parsed_command[0],"DOWNLOAD") == 0){
+			}else if (strcmp(request_type,"DOWNLOAD") == 0){
 				//Add working directory to the filepath 
-				full_file_path = obtain_full_file_path(parsed_command[1],working_dir); 
+				full_file_path = obtain_full_file_path(client_filename,working_dir); 
 				printf("Download request from %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
-				download(client_socket,full_file_path,parsed_command[1]);
+				download(client_socket,full_file_path,client_filename);
 				free(full_file_path); 
 
 			//Neither UPLOAD nor DOWNLOAD:
@@ -258,9 +268,8 @@ int main(int argc, char ** args){
 				fprintf(stderr,"Error: Unrecognized command from the client.\n"); 
 				send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 			}
+			free(client_filename); 
 		}
-		free(parsed_command[1]); 
-		free(parsed_command); 
 		close(client_socket);
 	}
 	close(server_socket);
