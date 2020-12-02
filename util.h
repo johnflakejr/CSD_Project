@@ -1,3 +1,10 @@
+/*
+ * CPT John Lake
+ * Utility header file for various functions
+ * Last updated 2DEC2020
+ */
+#ifndef UTIL_H
+#define UTIL_H
 #include <stdio.h>
 #include <time.h> 
 #include <errno.h>
@@ -8,15 +15,23 @@
 #include <unistd.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
-#define DEBUG 1
+#define DEBUG 0
 
 
 /*
- *	Given a path and filename, return just the filename: 
+ *	If the client drops the connection, we want to handle it gracefully: 
  */
-char* get_raw_filename(char * ffp){
-	char * raw_filename = malloc(strlen(ffp) + 1); 
-	strncpy(raw_filename,ffp,strlen(ffp)); 
+void broken_pipe_handler(){
+	fprintf(stderr,"Error: broken pipe.\n"); 
+	return; 
+}
+
+/*
+ *	Given a path and filename, return just the filename: 
+ *	Ex: /etc/passwd returns passwd
+ */
+void get_raw_filename(char* raw_filename,char * ffp){
+	strncpy(raw_filename,ffp,strlen(ffp)+1); 
 	raw_filename[strlen(ffp)] = '\0'; 
 	if(DEBUG){
 		printf("Full filepath: %s\n",ffp); 
@@ -36,7 +51,6 @@ char* get_raw_filename(char * ffp){
 		raw_filename[i] = raw_filename[i+last_position+1]; 
 	if(DEBUG)
 		printf("Returned filepath: %s\n",raw_filename); 
-	return raw_filename; 
 }
 
 /*
@@ -85,42 +99,54 @@ char * obtain_full_file_path(char * filename,char * working_dir){
 
 /*
  * Get rid of trailing and leading whitespace: 
+ * Modify the string directly
  */
-char * trim_whitespace(char * input){
+void trim_whitespace(char * response,char * input){
+
+	//Allocate enough space for the entire input string
+	strncpy(response,input,strlen(input)+1); 
 
 	
+	if(DEBUG)
+		printf("Trimming leading whitespace from [%s].\n",response); 
+
 	//Trim leading whitespace and forward slashes (paths): 
 	int offset=0, i = 0; 
-	while(input[offset] == ' ' || input[offset] == '\t' || input[offset] == '\n'){
+	while(response[offset] == ' ' || response[offset] == '\t' || response[offset] == '\n'){
 		offset++; 
 	}
 
+	if(DEBUG)
+		printf("Moving bytes to left.  Found offset: %d\n",offset); 
 
 	//Start at the offset found above (first spot with no whitespace), and move the characters over (incl trailing whitespace):  
 	i = 0; 
-	while(input[offset+i] != '\0'){
-		input[i] = input[offset + i]; 	
+	while(response[offset+i] != '\0'){
+		response[i] = response[offset + i]; 	
 		i++; 
 	}
-	input[i] = '\0'; 
+	response[i] = '\0'; 
+
+
+	if(DEBUG)
+		printf("Finding offset of last non-whitespace char.\n"); 
 
 	//Determine last non-whitespace character: 
 	int index = -1; 
 	i = 0; 
-	while(input[i] != '\0'){
-		if(input[i] != ' ' && input[i] != '\t' && input[i] != '\n')
+	while(response[i] != '\0'){
+		if(response[i] != ' ' && response[i] != '\t' && response[i] != '\n')
 			index = i; 
 		i++; 
 	}
 	//Null terminate right after the last non-whitespace character, effectively removing trailing whitespace: 
-	input[index+1] = '\0';  
-	return input; 
+	response[index+1] = '\0';  
 }
 
 /*
  * Given a buffer, extract the command and filename and return them as an array of two strings. 
  */
-char ** parse_command(char * buffer, ssize_t message_length){
+char ** parse_command(char * buffer){
 	//Request type = Upload or Download.
 	char *request_type = strtok(buffer," "); 
 
@@ -140,6 +166,11 @@ char ** parse_command(char * buffer, ssize_t message_length){
 	//Return string array with two strings: the command and filename.  Dynamically allocate with size of two char arrays.  
 	char ** parsed_command = (char**) malloc(2 * sizeof(char*)); 
 	parsed_command[0] = request_type; 
-	parsed_command[1] = trim_whitespace(filename);
+
+	char *trimmed_filename = (char*) malloc(strlen(filename) + 1); 
+	memset(trimmed_filename,0,strlen(filename)+1); 
+	trim_whitespace(trimmed_filename,filename);
+	parsed_command[1] = trimmed_filename;
 	return parsed_command; 
 }
+#endif

@@ -1,7 +1,7 @@
 /*
  * CPT John Lake
  * CSD Board Project
- * Last Updated: 30NOV2020
+ * Last Updated: 2DEC2020
  */
 
 
@@ -17,15 +17,6 @@
 #include <signal.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
-
-
-/*
- *	If the client drops the connection, we want to handle it gracefully: 
- */
-void broken_pipe_handler(){
-	fprintf(stderr,"Error: broken pipe.\n"); 
-	return; 
-}
 
 /*
  * Download files from this server to the client.
@@ -232,18 +223,22 @@ int main(int argc, char ** args){
 		}
 
 		//tokenize the message: 
-		parsed_command = parse_command(command_buffer,bytes_received); 
+		//Here, we obtain the command and filename
+		parsed_command = parse_command(command_buffer); 
 	
 		//Command message error: 
 		if(parsed_command == NULL){
 			fprintf(stderr,"Error: There was an issue with the command sent by the client.  Terminating connection.\n"); 
 			send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
+			close(client_socket); 
+			continue; 
 		}else{
 
 			//Upload file: 
 			if(strcmp(parsed_command[0],"UPLOAD") == 0){
 
-				char* server_filename = get_raw_filename(parsed_command[1]);  
+				char* server_filename = malloc(strlen(parsed_command[1])+1);
+				get_raw_filename(server_filename,parsed_command[1]);  
 				full_file_path = obtain_full_file_path(server_filename,working_dir); 
 				printf("Upload request from %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
 				upload(client_socket,full_file_path,parsed_command[1]); 
@@ -264,7 +259,7 @@ int main(int argc, char ** args){
 				send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 			}
 		}
-
+		free(parsed_command[1]); 
 		free(parsed_command); 
 		close(client_socket);
 	}

@@ -1,7 +1,12 @@
+#Makefile for CSD Board Project
+#Use make memcheck to build the server and run with valgrind
+
 CC=gcc
 EXEC=server
 CFLAGS=-Wall -Werror -Wpedantic
-OBJS=server.o 
+OBJS=server.o
+PORT=5555
+DIR=serverdir
 
 all: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(EXEC)
@@ -9,11 +14,8 @@ all: $(OBJS)
 server.o: server.c util.h
 	$(CC) $(CFLAGS) -c server.c
 
-run: 
-	./a.out 5000 .
-
 memcheck: all
-	valgrind --leak-check=full --show-leak-kinds=all ./$(EXEC) 5554 serverdir
+	valgrind --leak-check=full --show-leak-kinds=all ./$(EXEC) $(PORT) $(DIR)
 
 clean: 
 	rm server.o server
