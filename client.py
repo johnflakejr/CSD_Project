@@ -50,14 +50,13 @@ def download(sock,filename):
         return; 
 
     size = data.split(" ")[1]; 
-    print("Downloading \"" + filename + "\" with size " + str(size)); 
+    print("Downloading \"" + filename + "\" with size " + str(size));
 
 
     #Open file, read bytes from server,and save them
     f = open(filename,"wb"); 
     data = sock.recv(4096); 
     while(data): 
-        print("#",end=''); 
         sys.stdout.flush(); 
         f.write(data); 
         data = sock.recv(4096); 
@@ -114,8 +113,8 @@ def main():
             upload(sock,filename); 
         elif(command == "D"): 
             download(sock,filename); 
-    except: 
-        print("Error: could not connect to the server.\n",file=sys.stderr); 
+    except socket.error:  
+        print("Error: something went wrong with the socket.\n",file=sys.stderr); 
 
     sock.close();    
 

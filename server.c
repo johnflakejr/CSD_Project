@@ -4,7 +4,6 @@
  * Last Updated: 30NOV2020
  */
 
-//TODO: add more robust error messages. 
 
 #include "util.h"
 #include <stdio.h>
@@ -15,9 +14,18 @@
 #include <arpa/inet.h>
 #include <string.h> 
 #include <unistd.h> 
+#include <signal.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
-#define DEBUG 1
+
+
+/*
+ *	If the client drops the connection, we want to handle it gracefully: 
+ */
+void broken_pipe_handler(){
+	fprintf(stderr,"Error: broken pipe.\n"); 
+	return; 
+}
 
 /*
  * Download files from this server to the client.
@@ -41,7 +49,7 @@ void download(int client_socket, char *full_file_path, char* filename){
 	//File exists. Open and check size: 
 	FILE * file_pointer = fopen(full_file_path,"rb"); 
 	if(!file_pointer){
-		fprintf(stderr,"Error: client requested a file that could not be read. Check permissions.\n"); 
+		fprintf(stderr,"Error: client requested a file that could not be opened. Check permissions.\n"); 
 		send_error(client_socket,"Error reading file. Closing.\n\n"); 	
 		return; 
 	}
@@ -49,20 +57,33 @@ void download(int client_socket, char *full_file_path, char* filename){
 	int size = ftell(file_pointer); 
 	fseek(file_pointer,0,SEEK_SET); 
 
+	printf("Client requested %s, which is %d bytes.\n",full_file_path,size); 
 
 	//Send SENDING message to client with number of bytes: 
 	sprintf(response_buffer,"SENDING %d\n",size); 
-	send(client_socket,response_buffer,strlen(response_buffer),0); 
+	if(send(client_socket,response_buffer,strlen(response_buffer),0) < 0){
+		fprintf(stderr,"Error: there was an issue sending \"SENDING\" to the client.\n"); 
+		fclose(file_pointer); 
+		return; 
+	}
+		
 
 	//Let client parse for a second: 
 	sleep(1); 
 
-	if(DEBUG)
-		printf("Client is downloading %s\n",filename); 
 	//Read from file and send to client
 	ssize_t bytes_read = fread(file_buffer,1,4096,file_pointer); 
+	if(bytes_read < 0){
+		fprintf(stderr,"Error: there was an issue reading the file.\n"); 
+		fclose(file_pointer); 
+		return;
+	}
 	while(bytes_read > 0){
-		send(client_socket,file_buffer,bytes_read,0); 
+		if(send(client_socket,file_buffer,bytes_read,0) < 0){
+			fprintf(stderr,"Error: there was an issue sending the file to the client.\n"); 
+			fclose(file_pointer); 
+			return; 
+		}
 		bytes_read = fread(file_buffer,1,4096,file_pointer); 
 	}
 	fclose(file_pointer); 
@@ -82,29 +103,35 @@ void upload(int client_socket,char * full_file_path, char* filename){
 	//Write to file.  Use binary mode.  
 	FILE * file_pointer = fopen(full_file_path,"wb"); 
 	if(!file_pointer){
-		fprintf(stderr, "Error: could not write file.\n"); 
+		fprintf(stderr, "Error: could not open file for writing.\n"); 
 		send_error(client_socket,"Error writing file. Closing.\n\n"); 	
 		return; 
 	}
 	
 	//Generate READY message with filename and send to client: 
 	sprintf(response_buffer,"READY %s\n",filename); 
-	send(client_socket,response_buffer,strlen(response_buffer),0); 
+	if(send(client_socket,response_buffer,strlen(response_buffer),0) < 0){
+		fprintf(stderr,"Error: there was an issue sending \"READY\" to the client.\n"); 
+		fclose(file_pointer); 
+		return;
+	}
 
-	if(DEBUG)
-		printf("Client is uploading %s\n",filename); 
 
 	//Get file from client
 	ssize_t total_b = 0;
 	ssize_t bytes_received = recv(client_socket,file_buffer,sizeof(file_buffer),0); 
+	if(bytes_received < 0){
+		fprintf(stderr,"Error: there was an issue reading data from the client.\n"); 
+		fclose(file_pointer); 
+		return; 
+	}
 	while(bytes_received){
 		total_b += bytes_received; 
 		fwrite(file_buffer,1,bytes_received,file_pointer);
 		bytes_received = recv(client_socket,file_buffer,sizeof(file_buffer),0); 
 	}
 
-	if(DEBUG)
-		printf("Client uploaded %d bytes.\n",(int) total_b); 
+	printf("Client uploaded the file %s, which is %d bytes.\n",full_file_path, (int) total_b); 
 
 	fclose(file_pointer);
 }
@@ -143,10 +170,23 @@ int main(int argc, char ** args){
 	server_socket_info.sin_addr.s_addr=htonl(INADDR_ANY);
 	server_socket_info.sin_port = htons(port);
 
+	//Setup handler for SIGPIPEs
+	signal(SIGPIPE,broken_pipe_handler); 
+
 	//make, bind, and listen on server socket
 	server_socket = socket(AF_INET,SOCK_STREAM,0);
-	bind(server_socket,(struct sockaddr*) &server_socket_info,sizeof(struct sockaddr));
-	listen(server_socket,1);
+	if(server_socket == -1){
+		fprintf(stderr,"Error creating socket: %d\n",errno);
+		exit(errno); 
+	}
+	if(bind(server_socket,(struct sockaddr*) &server_socket_info,sizeof(struct sockaddr)) == -1){
+		fprintf(stderr,"Error binding socket: %d\n",errno);
+		exit(errno); 
+	}
+	if(listen(server_socket,1) ==-1){
+		fprintf(stderr,"Error listening on socket: %d\n",errno);
+		exit(errno); 
+	}
 
 	//Declare buffers / pointers for dynamically allocated memory
 	char command_buffer[4096];
@@ -162,7 +202,7 @@ int main(int argc, char ** args){
 
 		if(client_socket < 0){
 			fprintf(stderr,"Error accepting socket: %d\n",errno);
-			exit(1); 
+			exit(errno); 
 		}
 
 		if(DEBUG){
@@ -176,7 +216,7 @@ int main(int argc, char ** args){
 
 		if(bytes_received < 0){
 			fprintf(stderr,"Error receiving data:%d\n",errno); 
-			exit(1); 
+			exit(errno); 
 		}
 
 		//tokenize the message: 
@@ -191,13 +231,15 @@ int main(int argc, char ** args){
 			full_file_path = obtain_full_file_path(parsed_command[1],working_dir); 
 
 			//Upload file: 
-			if(strcmp(parsed_command[0],"UPLOAD") == 0)
+			if(strcmp(parsed_command[0],"UPLOAD") == 0){
+				printf("Upload request from %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
 				upload(client_socket,full_file_path,parsed_command[1]); 
 			//Download file: 
-			else if (strcmp(parsed_command[0],"DOWNLOAD") == 0)
+			}else if (strcmp(parsed_command[0],"DOWNLOAD") == 0){
+				printf("Download request from %s:%d\n",inet_ntoa(client_socket_info.sin_addr),ntohs(client_socket_info.sin_port));
 				download(client_socket,full_file_path,parsed_command[1]);
 			//Neither UPLOAD nor DOWNLOAD:
-			else { 
+			}else { 
 				fprintf(stderr,"Error: Unrecognized command from the client.\n"); 
 				send_error(client_socket,"Unrecognized command.  Please use UPLOAD [filename] or DOWNLOAD [filename].\n\n"); 
 			}

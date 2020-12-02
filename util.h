@@ -8,7 +8,7 @@
 #include <unistd.h> 
 #include <sys/types.h>
 #include <sys/socket.h>
-#define DEBUG 1
+#define DEBUG 0
 
 /*
  * Usage message when command line arguments or commands are improperly used: 
@@ -22,7 +22,9 @@ void usage(void){
  * Microscopic helper function to send a custom error message to the client
  */
 void send_error(int socket, char* message){ 
-	send(socket,message,strlen(message),0); 
+	if(send(socket,message,strlen(message),0) < 0){
+		fprintf(stderr,"Error sending message to client.\n"); 
+	}
 }
 
 /*
@@ -35,6 +37,7 @@ char * obtain_full_file_path(char * filename,char * working_dir){
 	}
 
 	//Allocate enough memory for the filename plus the working directory
+	//+2 is to account for the extra '/' and null terminator, because strlen() doesn't include '\0'.  
 	char * ffp = malloc(strlen(filename) + strlen(working_dir) + 2);  
 
 	//Add "/" to the end of the directory if it isn't there. 
@@ -44,7 +47,6 @@ char * obtain_full_file_path(char * filename,char * working_dir){
 	}else{
 		sprintf(ffp,"%s%s",working_dir,filename); 
 	}
-
 	if(DEBUG)
 		printf("Full filepath: %s\n",ffp); 
 
