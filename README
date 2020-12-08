@@ -5,7 +5,7 @@ CSD Board Project - Client/Server
 Compiling: 
 ##########
 Use "make" to compile the server. 
-Use "make memcheck" to compile the server and run it with valgrind. 
+Use "make memcheck" to compile the server and run it with valgrind. Make sure to set the port and directory as well.
 
 Running the Server: 
 ###################
